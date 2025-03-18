@@ -46,13 +46,13 @@ V10 - main
 - add a loading indicator when translation is happening in the background
 
 
-Requirements:
+## Requirements:
 
-PIP:
+### PIP:
 - PyQt6
 - opencv-python
 - pytesseract
 - googletrans==4.0.0-rc1
 
-System:
+### System:
 sudo apt-get install tesseract-ocr-deu
