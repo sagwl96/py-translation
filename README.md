@@ -16,3 +16,9 @@ Currently only does german to english!
 
 ### System:
 sudo apt-get install tesseract-ocr-deu
+
+## To - Do:
+
+- Add language selection
+- Inplace translation
+- Offline translation
