@@ -98,7 +98,7 @@ def test_toast_hides_after_duration(qapp):
     win = ui.MainWindow()
     win.show()
     win.central.show_status("x", 50)
-    end = time.monotonic() + 0.3
+    end = time.monotonic() + 0.7   # duration + 200 ms fade-out
     while time.monotonic() < end:
         qapp.processEvents()
     assert not win.central.status_label.isVisible()

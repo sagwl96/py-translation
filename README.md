@@ -20,13 +20,22 @@ uv sync
 
 `./scripts/setup_models.sh` downloads the German to English translation model (about 150 MB) and the Tesseract German data (about 1.5 MB) into `${XDG_DATA_HOME:-~/.local/share}/py-translation/`. It is safe to run again (it skips what is already there) and reuses an existing `~/.local/share/argos-translate` install or system-wide Tesseract data if it finds them. `--eng` also fetches the English OCR data.
 
+## The window
+
+The window is a see-through frame with a rounded purple outline. Only the area **inside** the frame is captured; the frame and the toolbar below it never are. Place the frame over the text, press Space, and the translations appear in place.
+
+- **Move:** drag the frame outline, or the grip (dotted handle) at the left of the toolbar.
+- **Resize:** drag the thin zone just outside the outline (edges and corners; the cursor changes). The minimum capture area is about 290 x 160.
+- **Toolbar** (the dark pill under the frame): grip, language chip (click for "Detect automatically" / "German"; changing it clears cached translations), Translate (shows a spinner while working), Clear, Pin (always on top; tinted when on), More (keyboard shortcuts card, Quit) and Close. Tooltips show the shortcuts.
+- While idle the middle of the frame shows a hint. While working, the translate button spins and the frame outline pulses. A short white glow on the frame confirms a capture. Messages appear as small toasts at the bottom of the frame.
+
 ## Keys
 
 | Key | Action |
 |---|---|
-| Space | Capture the area under the window, OCR and translate |
+| Space | Capture the area inside the frame, OCR and translate |
 | Esc | Clear the translated overlay |
-| Click a translation | Copy its text to the clipboard (shows "Copied") |
+| Click a translation | Copy its text to the clipboard (accent ring, "Copied" toast) |
 | T | Toggle always-on-top (shows a toast) |
 | Hold Alt | Peek at the original (hides the overlay while held) |
 
@@ -74,6 +83,7 @@ uv sync
 QT_QPA_PLATFORM=offscreen uv run pytest -q
 uv run pyflakes main.py pytranslate tests scripts
 QT_QPA_PLATFORM=offscreen uv run python scripts/bench.py    # timing of the capture pipeline
+QT_QPA_PLATFORM=offscreen uv run python scripts/render_ui_states.py OUT_DIR   # PNGs of every UI state (light/dark, 1x/2x)
 ```
 
 Tests and the benchmark need the models installed (`./scripts/setup_models.sh`) and no network.
@@ -87,7 +97,8 @@ Tests and the benchmark need the models installed (`./scripts/setup_models.sh`) 
 | `pytranslate/mt.py` | Offline translation: Argos model package run with CTranslate2 + SentencePiece, sentence splitter, model lookup |
 | `pytranslate/translate.py` | Language detection, caching, offline and (opt-in) Google backends |
 | `pytranslate/worker.py` | `TranslationWorker` thread: OCR, group, translate |
-| `pytranslate/ui.py` | Widgets and `MainWindow` |
+| `pytranslate/ui.py` | Widgets and `MainWindow` (frame canvas, toolbar, hint, toast, overlays) |
+| `pytranslate/geometry.py`, `theme.py`, `icons.py` | Window layout and frame hit-testing, colour/size tokens, inline SVG icons and the app icon (all drawn in code) |
 | `pytranslate/__main__.py` | Argument parsing and app start |
 
 ## License

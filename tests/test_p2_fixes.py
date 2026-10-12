@@ -143,7 +143,10 @@ class _FakeScreen:
         win = self.seen["win"]
         self.seen["overlays"] = len(win.overlay_labels)
         self.seen["status_visible"] = win.central.status_label.isVisible()
-        self.seen["spinner"] = win.spinner_overlay
+        self.seen["hint"] = win.central.hint.isVisible()
+        self.seen["popover"] = win.central.shortcuts.isVisible()
+        self.seen["flash"] = win.central.flash_active()
+        self.seen["busy"] = win.busy
         self.seen["args"] = (wid, x, y, w, h)
         pm = QtGui.QPixmap(w, h)
         pm.fill(QtGui.QColor(255, 255, 255))
@@ -157,7 +160,7 @@ def test_capture_hides_ui_before_grab(qapp, monkeypatch):
     seen["win"] = win
     win.show()
     # pre-existing overlay + visible toast
-    label = QtWidgets.QLabel("old", win.central)
+    label = QtWidgets.QLabel("old", win.capture_area)
     label.show()
     win.overlay_labels.append(label)
     win.central.show_status("Old toast", 5000)
@@ -177,7 +180,8 @@ def test_capture_hides_ui_before_grab(qapp, monkeypatch):
     assert seen["args"] == (0, 1, 2, 30, 20)
     assert seen["overlays"] == 0
     assert seen["status_visible"] is False
-    assert seen["spinner"] is None
+    assert seen["hint"] is False and seen["popover"] is False and seen["flash"] is False
+    assert seen["busy"] is True   # the toolbar spinner is on, but it lives outside the capture rect
     win.worker = None
     win.close()
 

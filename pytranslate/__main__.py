@@ -55,7 +55,9 @@ def main(argv=None):
 
     from PyQt6 import QtWidgets
     from .ui import MainWindow
+    from .icons import make_app_icon
     app = QtWidgets.QApplication(argv[:1])
+    app.setWindowIcon(make_app_icon())
     window = MainWindow()
     window.show()
     from . import translate
