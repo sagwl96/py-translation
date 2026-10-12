@@ -238,7 +238,7 @@ class MainWindow(QtWidgets.QMainWindow):
             fg = render.pick_text_color(bg)
             label.setStyleSheet(f"""
                 QLabel {{
-                    background-color: rgba({bg[0]}, {bg[1]}, {bg[2]}, 245);
+                    background-color: rgb({bg[0]}, {bg[1]}, {bg[2]});
                     color: rgb({fg[0]}, {fg[1]}, {fg[2]});
                     padding: {render.PAD}px {render.PAD + 1}px;
                     border-radius: 3px;

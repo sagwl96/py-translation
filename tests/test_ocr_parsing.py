@@ -74,3 +74,16 @@ def test_real_engine_reuses_pooled_api():
 def test_omp_not_throttled_process_wide():
     import os
     assert "OMP_THREAD_LIMIT" not in os.environ   # must not throttle Argos/ctranslate2
+
+
+def test_icon_and_box_edge_tokens_dropped_but_midline_symbols_kept():
+    # (text, conf, left, top, width, height, block, par, line)
+    words = [
+        ("(©", 90, 0, 0, 12, 12, 1, 1, 1), ("Scroll", 95, 20, 0, 40, 12, 1, 1, 1),
+        ("page", 95, 64, 0, 30, 12, 1, 1, 1), ("details", 95, 98, 0, 40, 12, 1, 1, 1),
+        ("[", 80, 0, 30, 4, 14, 2, 1, 1), ("Fish", 95, 10, 30, 30, 12, 2, 1, 1),
+        ("&", 95, 44, 30, 8, 12, 2, 1, 1), ("Chips", 95, 56, 30, 36, 12, 2, 1, 1),
+        ("|", 80, 96, 30, 3, 14, 2, 1, 1),
+    ]
+    texts = [l['text'] for l in ocr._parse_data(words, 1.0)]
+    assert texts == ["Scroll page details", "Fish & Chips"]

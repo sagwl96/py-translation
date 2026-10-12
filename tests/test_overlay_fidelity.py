@@ -139,7 +139,7 @@ def test_labels_take_background_colour_with_readable_text(page_run):
     assert all(r['bg_err'] <= 12 for r in colored), colored
     assert any(r['bg_err'] is not None for r in metrics['regions'])
     for it, label in zip(result, win.overlay_labels):
-        m = re.search(r"background-color: rgba\((\d+), (\d+), (\d+)", label.styleSheet())
+        m = re.search(r"background-color: rgb\((\d+), (\d+), (\d+)\)", label.styleSheet())
         assert tuple(map(int, m.groups())) == tuple(it['bg'])
         fg = re.search(r"[^-]color: rgb\((\d+), (\d+), (\d+)", label.styleSheet())
         assert render.contrast_ratio(it['bg'], tuple(map(int, fg.groups()))) >= 4.5

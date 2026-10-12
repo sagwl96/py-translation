@@ -444,6 +444,22 @@ def robust_text_h(texts, rects):
     return float(np.median(keep))
 
 
+def _has_alnum(token):
+    return any(c.isalnum() for c in token)
+
+
+def _strip_edge_junk(words, rects, confs):
+    """Drop tokens without any letter/digit at the start and end of a line: icons and
+    box edges are read as "(©", "@", "[" or "|" there. Mid-line symbols ("&", "•", "–")
+    are real text and kept."""
+    i, j = 0, len(words)
+    while i < j and not _has_alnum(words[i]):
+        i += 1
+    while j > i and not _has_alnum(words[j - 1]):
+        j -= 1
+    return words[i:j], rects[i:j], confs[i:j]
+
+
 def _parse_data(words, scale_factor, y_offset=0, strip=0):
     """Turn word tuples from _recognize_words into lines.
 
@@ -459,8 +475,6 @@ def _parse_data(words, scale_factor, y_offset=0, strip=0):
         text = text.strip()
         if not text or conf < CONFIG.min_ocr_conf:
             continue
-        if len(text) == 1 and not text.isalnum():
-            continue   # lone punctuation: button/box edges read as "[" or "|"
         key = (strip * 1000 + block, par, line)
 
         x = int(left * scale_back)
@@ -492,6 +506,9 @@ def _parse_data(words, scale_factor, y_offset=0, strip=0):
             segments[-1][2].append(conf)
 
         for seg_words, seg_rects, seg_confs in segments:
+            seg_words, seg_rects, seg_confs = _strip_edge_junk(seg_words, seg_rects, seg_confs)
+            if not seg_words:
+                continue
             min_x = min(r[0] for r in seg_rects)
             min_y = min(r[1] for r in seg_rects)
             max_x = max(r[0] + r[2] for r in seg_rects)
