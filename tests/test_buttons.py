@@ -106,3 +106,28 @@ def test_fallback_keeps_best_scoring_result(qapp, monkeypatch):
     assert ocr._fallback_pass(img, 1.0, shaky) == good
     assert ocr.score(good) == 540 and ocr.mean_conf(shaky) == 30
     assert ocr.mean_conf([]) == 0.0
+
+
+def _card_with_bar(bar=(181, 127, 127)):
+    """White page, a card with a 1-px dark border, and a coloured header bar whose edges
+    touch that border (BGR). The old detector merged bar + border into one sparse shape."""
+    img = np.full((280, 525, 3), 255, np.uint8)
+    cv2.rectangle(img, (12, 120), (512, 250), (40, 40, 40), 1)
+    cv2.rectangle(img, (13, 121), (511, 160), bar, -1)
+    cv2.putText(img, "Ausleihe", (22, 147), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (79, 42, 31), 1, cv2.LINE_AA)
+    cv2.putText(img, "Montag bis Freitag", (22, 185), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (30, 30, 30), 1, cv2.LINE_AA)
+    return img
+
+
+def test_solid_bar_touching_card_border_is_found():
+    boxes = ocr.find_solid_regions(_card_with_bar())
+    assert len(boxes) == 1
+    x, y, w, h = boxes[0]
+    assert abs(y - 121) <= 3 and abs(h - 40) <= 4 and w > 450
+
+
+def test_panel_containing_a_bar_is_not_a_box():
+    img = _card_with_bar()
+    img[161:250, 13:512] = (240, 240, 240)   # light-grey card body around/below the bar
+    boxes = ocr.find_solid_regions(img)
+    assert all(not (b[3] > 60) for b in boxes)   # only the 40-px bar, not the whole card

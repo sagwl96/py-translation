@@ -121,29 +121,75 @@ REGION_STRIP_BASE = 100   # block-id namespace of region passes (strip ids of th
 def find_solid_regions(img):
     """Bounding boxes (x, y, w, h) of solid, non-background coloured rectangles (buttons,
     header bars) in a BGR image. The background is the most common colour. Works on a
-    half-size copy (INTER_AREA) to stay cheap on big captures."""
-    f = 2 if img.shape[1] >= 600 else 1
+    half-size copy (INTER_AREA) to stay cheap on big captures.
+
+    Each frequent non-background colour is masked on its own, so a bar whose edges touch
+    a card's dark border lines is not merged with them into one sparse shape (which then
+    failed the fill test and was skipped)."""
+    f = max(1, round(img.shape[1] / 300))   # boxes are >= 40x16 px, so ~300 px wide is plenty
     small = cv2.resize(img, None, fx=1 / f, fy=1 / f, interpolation=cv2.INTER_AREA) if f > 1 else img
     q = (small >> 4).astype(np.uint16)
     packed = (q[..., 0] << 8) | (q[..., 1] << 4) | q[..., 2]
-    bg_bin = np.bincount(packed.ravel()).argmax()
-    bg = small[packed == bg_bin].mean(axis=0).astype(np.uint8)
-    diff = cv2.absdiff(small, np.broadcast_to(bg, small.shape))
-    b, g, r = cv2.split(diff)
-    mask = (cv2.max(cv2.max(b, g), r) > 30).astype(np.uint8)
-    n, _, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
-    ih, iw = mask.shape
+    counts = np.bincount(packed.ravel(), minlength=4096)
+    bg_bin = counts.argmax()
+    bg = small[packed == bg_bin].mean(axis=0)
+    ih, iw = packed.shape
+    min_px = max(1, (MIN_BOX_W // f) * (MIN_BOX_H // f) // 2)
     boxes = []
-    for i in range(1, n):
-        x, y, w, h, area = stats[i]
-        if w * f < MIN_BOX_W or h * f < MIN_BOX_H or area < 0.6 * w * h:
+    for b in np.argsort(counts)[::-1][:1 + MAX_COLOURS]:
+        if counts[b] < min_px:
+            break
+        colour = small[packed == b].mean(axis=0)
+        if b == bg_bin or np.abs(colour - bg).max() <= 30:
             continue
-        if w * h > 0.5 * iw * ih:
-            continue
-        boxes.append((int(x * f), int(y * f), int(w * f), int(h * f)))
-    return boxes
+        # colour match via a 4096-entry lookup on the quantised bins (bin centres)
+        near = _BIN_LUT_DIST(colour)[packed]
+        # close small holes (the glyphs drawn on the bar) so the bar stays one component
+        joined = cv2.morphologyEx(near, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+        n, labels, stats, _ = cv2.connectedComponentsWithStats(joined, connectivity=8)
+        for i in range(1, n):
+            x, y, w, h, _ = stats[i]
+            if w * f < MIN_BOX_W or h * f < MIN_BOX_H or w * h > 0.5 * iw * ih:
+                continue
+            # fill is measured on the un-closed mask: a bar with text is mostly bar colour,
+            # a word of dark text is not
+            if near[y:y + h, x:x + w][labels[y:y + h, x:x + w] == i].mean() < 0.6:
+                continue
+            box = (int(x * f), int(y * f), int(w * f), int(h * f))
+            if not any(_iou(box, o) > 0.5 for o in boxes):
+                boxes.append(box)
+    # A box that contains another one is a panel (e.g. a card around its header bar), not a
+    # button: re-reading it would duplicate the inner box's text.
+    return [b for b in boxes if not any(o is not b and _contains(b, o) for o in boxes)]
 
 
+def _contains(a, b, slack=2):
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    return (bx >= ax - slack and by >= ay - slack and bx + bw <= ax + aw + slack
+            and by + bh <= ay + ah + slack and aw * ah > bw * bh)
+
+
+_BIN_CENTRES = np.stack(np.meshgrid(np.arange(16), np.arange(16), np.arange(16),
+                                    indexing="ij"), -1).reshape(-1, 3) * 16 + 8
+
+
+def _BIN_LUT_DIST(colour):
+    """uint8 lookup (bin -> 1/0): is the bin centre within COLOUR_TOL (+ half a bin)?"""
+    return (np.abs(_BIN_CENTRES - colour).max(axis=1) <= COLOUR_TOL + 8).astype(np.uint8)
+
+
+def _iou(a, b):
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    iw = max(0, min(ax + aw, bx + bw) - max(ax, bx))
+    ih = max(0, min(ay + ah, by + bh) - max(ay, by))
+    inter = iw * ih
+    return inter / float(aw * ah + bw * bh - inter) if inter else 0.0
+
+
+MAX_COLOURS = 8     # distinct non-background colours examined for solid boxes
+COLOUR_TOL = 24     # max per-channel distance from a box colour (anti-aliasing, gradients)
 MAX_REGIONS = 12
 
 
