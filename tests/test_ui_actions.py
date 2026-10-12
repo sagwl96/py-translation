@@ -81,3 +81,14 @@ def test_overlay_and_toast_show_quotes_literally(qapp):
     assert win.central.status_label.textFormat() == QtCore.Qt.TextFormat.PlainText
     assert win.central.status_label.text() == 'Error: "x" <y>'
     win.close()
+
+
+def test_toast_stays_above_overlays(qapp):
+    # Regression: overlays (created later, same parent) covered the "Copied" toast
+    win = MainWindow()
+    win.on_translation_finished([_result("first"), _result("second")])
+    assert win.central.children()[-1] is win.central.status_label
+    win.copy_overlay_text(win.overlay_labels[0])
+    assert win.central.children()[-1] is win.central.status_label
+    assert win.central.status_label.text() == "Copied"
+    win.close()

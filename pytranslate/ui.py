@@ -92,6 +92,7 @@ class TransparentCentralWidget(QtWidgets.QWidget):
         self.status_label.move((self.width() - self.status_label.width()) // 2,
                                self.height() - self.status_label.height() - 20)
         self.status_label.show()
+        self.status_label.raise_()   # overlays are siblings; keep the toast above them
         self._status_timer.start(duration)
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -256,6 +257,8 @@ class MainWindow(QtWidgets.QMainWindow):
             label.show()
             label.anim_ref = anim
             self.overlay_labels.append(label)
+        # Overlays created after the "Translated N paragraphs" toast would cover it
+        self.central.status_label.raise_()
 
     def copy_overlay_text(self, label):
         QtWidgets.QApplication.clipboard().setText(label.plain_text)
