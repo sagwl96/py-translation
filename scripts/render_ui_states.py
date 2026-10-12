@@ -32,6 +32,9 @@ def page_background(dark):
         p = QtGui.QPainter(img)
         p.fillRect(img.rect(), QtGui.QColor(20, 20, 30, 60))
         p.end()
+    if dark:   # the pipeline must see the page actually shown, so overlay colours match it
+        from pytranslate.capture import qimage_to_bgr
+        bgr = qimage_to_bgr(img)
     return img, bgr
 
 
@@ -140,13 +143,12 @@ def render(win, menu, dark, dpr):
 
 def main(out_dir, states):
     os.makedirs(out_dir, exist_ok=True)
-    bgr, _ = helpers.render_web_page()
-    result = helpers.run_page_pipeline(bgr)
+    results = {dark: helpers.run_page_pipeline(page_background(dark)[1]) for dark in (False, True)}
     written = []
     for state in states:
         for dark in (False, True):
             for dpr in (1.0, 2.0):
-                win, menu = build(state, result, dark)
+                win, menu = build(state, results[dark], dark)
                 img = render(win, menu, dark, dpr)
                 name = f"{state}_{'dark' if dark else 'light'}_{int(dpr)}x"
                 path = os.path.join(out_dir, name + ".png")

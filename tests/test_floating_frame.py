@@ -225,3 +225,33 @@ class MainWindowIconSet:
         ok = not win.windowIcon().isNull()
         win.close()
         return ok
+
+
+def test_toast_sits_in_toolbar_row_right_of_pill(qapp):
+    win = _win(qapp, 820, 668)
+    win.central.show_status("Translated 19 paragraphs", 5000)
+    t, pill = win.central.status_label, win.toolbar.geometry()
+    assert win.central.toast_in_toolbar_row
+    assert t.height() == pill.height() == 36 and t.y() == pill.y()
+    assert t.x() - (pill.right() + 1) == 8
+    assert t.y() > win.central.capture_rect().bottom()        # never over the capture area
+    win.close()
+
+
+def test_toast_falls_back_inside_frame_when_row_is_full(qapp):
+    win = _win(qapp, geo.MIN_WINDOW[0], 300)
+    win.central.show_status("Translation model not installed: run ./scripts/setup_models.sh", 5000, error=True)
+    assert not win.central.toast_in_toolbar_row
+    assert win.central.capture_rect().contains(win.central.status_label.geometry())
+    win.close()
+
+
+def test_system_copy_has_no_terminal_period(qapp):
+    win = _win(qapp)
+    win.on_translation_finished([])
+    assert win.central.status_label.text() == "No text found or translation failed"
+    win.on_worker_error("Tesseract is missing.")
+    assert win.central.status_label.text() == "Tesseract is missing"
+    win.clear_with_toast()
+    assert win.central.status_label.text() == "Overlays cleared"
+    win.close()

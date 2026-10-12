@@ -120,30 +120,12 @@ class OverlayLabel(QtWidgets.QLabel):
 
 
 class CaptureArea(QtWidgets.QWidget):
-    """The area inside the frame: parent of the overlay labels; paints their soft shadows
-    (a QGraphicsEffect cannot stack with the fade-in opacity effect)."""
+    """The area inside the frame: transparent parent of the overlay labels."""
 
     def __init__(self, labels, parent=None):
         super().__init__(parent)
         self._labels = labels
         self.setCursor(Qt.CursorShape.ArrowCursor)
-
-    def paintEvent(self, event):
-        if not self._labels:
-            return
-        p = QtGui.QPainter(self)
-        p.setRenderHint(_AA)
-        p.setPen(_NOPEN)
-        for lb in self._labels:
-            if not lb.isVisible():
-                continue
-            eff = lb.graphicsEffect()
-            op = eff.opacity() if eff is not None else 1.0
-            r = QtCore.QRectF(lb.geometry())
-            for grow, alpha in ((3.0, 7), (2.0, 11), (1.0, 16)):
-                p.setBrush(QtGui.QColor(0, 0, 0, int(alpha * op)))
-                rr = r.adjusted(-grow, -grow + 1.5, grow, grow + 1.5)
-                p.drawRoundedRect(rr, theme.OVERLAY_RADIUS + grow, theme.OVERLAY_RADIUS + grow)
 
 
 # --------------------------------------------------------------------------- toolbar
@@ -422,12 +404,23 @@ class Toast(QtWidgets.QLabel):
         self._opacity = float(v)
         self.update()
 
-    def set_message(self, text, error, max_width):
+    def natural_width(self, text, error):
+        left = 16 + (14 if error else 0)
+        return QtGui.QFontMetrics(self.font()).horizontalAdvance(text) + left + 16 + 2
+
+    def set_message(self, text, error, max_width, fixed_h=None):
+        """Size the toast. fixed_h: one line, exactly that tall (toolbar-row mode); otherwise
+        word-wrapped to max_width."""
         self.error = bool(error)
         self.setText(text)
         left = 16 + (14 if error else 0)
-        self.setContentsMargins(left, 8, 16, 8)
-        natural = QtGui.QFontMetrics(self.font()).horizontalAdvance(text) + left + 16 + 2
+        vm = 0 if fixed_h else 8
+        self.setContentsMargins(left, vm, 16, vm)
+        natural = self.natural_width(text, error)
+        if fixed_h:
+            self.setWordWrap(False)
+            self.setFixedSize(natural, fixed_h)
+            return
         self.setWordWrap(True)
         w = max(40, min(natural, max_width))
         self.setFixedWidth(w)
@@ -440,7 +433,7 @@ class Toast(QtWidgets.QLabel):
         r = QtCore.QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
         rad = min(r.height() / 2, 18)
         p.setBrush(qcolor(theme.PILL_BG, 238))
-        p.setPen(QtGui.QPen(qcolor(theme.WHITE, 26), 1))
+        p.setPen(QtGui.QPen(qcolor(theme.WHITE, 40), 1))
         p.drawRoundedRect(r, rad, rad)
         if self.error:
             p.setPen(_NOPEN)
@@ -521,6 +514,8 @@ class TransparentCentralWidget(QtWidgets.QWidget):
         self._hover = False
         self._breath = 1.0          # 1 = full strength; pulses down while busy
         self._flash = 0.0
+        self._toast_msg = ("", False)
+        self.toast_in_toolbar_row = False
         self.capture_area = CaptureArea(overlay_labels, self)
         self.hint = HintPill(self)
         self.toolbar = Toolbar(self)
@@ -648,13 +643,32 @@ class TransparentCentralWidget(QtWidgets.QWidget):
 
     # toast -------------------------------------------------------------------------
     def _place_toast(self):
-        cap = self.capture_rect()
+        """Toolbar row first: a pill of the same height right of the toolbar pill (else left of
+        it); only when neither fits, inside the bottom of the frame."""
         t = self.status_label
+        text, error = self._toast_msg
+        pill = self.toolbar.geometry()
+        nat = t.natural_width(text, error)
+        gap = 8
+        if pill.right() + 1 + gap + nat <= self.width() - geo.HALO:
+            x = pill.right() + 1 + gap
+        elif pill.left() - gap - nat >= geo.HALO:
+            x = pill.left() - gap - nat
+        else:
+            x = None
+        if x is not None:
+            t.set_message(text, error, nat, fixed_h=theme.PILL_H)
+            t.move(x, pill.top())
+            self.toast_in_toolbar_row = True
+            return
+        cap = self.capture_rect()
+        t.set_message(text, error, max(80, cap.width() - 32))
         t.move(cap.center().x() - t.width() // 2 + 1, cap.bottom() - t.height() - 14)
+        self.toast_in_toolbar_row = False
 
     def show_status(self, text, duration=2000, error=False):
         t = self.status_label
-        t.set_message(text, error, max(80, self.capture_rect().width() - 32))
+        self._toast_msg = (text, error)
         self._place_toast()
         self._toast_anim.stop()
         fading_in = not t.isVisible()
@@ -862,7 +876,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def clear_with_toast(self):
         self.clearOverlays()
         self.central.shortcuts.hide()
-        self.central.show_status("Overlays cleared.", 1000)
+        self.central.show_status("Overlays cleared", 1000)
         self.update_hint()
 
     def hide_capture_ui(self):
@@ -894,7 +908,7 @@ class MainWindow(QtWidgets.QMainWindow):
         img_bgr = qimage_to_bgr(qimage)
 
         self.central.flash()   # only now: the glow must never be in the capture
-        self.central.show_status("OCR + Translating...", 3000)
+        self.central.show_status("OCR + translating…", 3000)
 
         self.worker = TranslationWorker(img_bgr, dpr=screen.devicePixelRatio())
         self.worker.finished_translation.connect(self.on_translation_finished)
@@ -906,6 +920,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_worker_error(self, message):
         self._error_shown = True
         self.set_busy(False)
+        if message.endswith(".") and not message.endswith(".."):
+            message = message[:-1]
         self.central.show_status(message, 5000, error=True)
 
     @QtCore.pyqtSlot(list)
@@ -915,10 +931,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if not result_data:
             if self._error_shown:
                 return   # keep the specific error message visible
-            self.central.show_status("No text found or translation failed.", 2000)
+            self.central.show_status("No text found or translation failed", 2000)
             return
 
-        self.central.show_status(f"Translated {len(result_data)} paragraphs.", 1500)
+        self.central.show_status(f"Translated {len(result_data)} paragraphs", 1500)
 
         boxes = []
         for item in result_data:
@@ -977,7 +993,6 @@ class MainWindow(QtWidgets.QMainWindow):
             anim.setDuration(300)
             anim.setStartValue(0)
             anim.setEndValue(1)
-            anim.valueChanged.connect(lambda _v: self.capture_area.update())
             anim.start(QtCore.QPropertyAnimation.DeletionPolicy.DeleteWhenStopped)
 
             label.show()

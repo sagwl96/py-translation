@@ -17,7 +17,7 @@ PILL_RADIUS = 18
 BUTTON = 28
 ICON = 20
 GAP = 4
-OVERLAY_RADIUS = 6
+OVERLAY_RADIUS = 3
 
 HINT_ALPHA = 232        # ~91 %: 80 % let page text show through the words
 PILL_ALPHA = 235        # 92 %
