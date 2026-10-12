@@ -1,0 +1,34 @@
+[project]
+name = "py-translation"
+version = "0.1.0"
+description = "Screen OCR + translation overlay (PyQt6, Tesseract, CTranslate2)"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "PyQt6>=6.10",
+    "opencv-python-headless>=4.13",
+    "numpy>=2.3",
+    "ctranslate2>=4.5",
+    "sentencepiece>=0.2",
+    "tesserocr>=2.11.0",
+]
+
+[project.optional-dependencies]
+# Only for `--online` (Google Translate; sends the recognised text to Google): uv sync --extra online
+online = ["deep-translator>=1.11"]
+
+[project.scripts]
+pytranslate = "pytranslate.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pyflakes>=3",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["pytranslate"]

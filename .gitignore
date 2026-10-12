@@ -1,0 +1,11 @@
+.venv/
+.venv*/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# local notes and history, not published
+PLAN.md
+PROJECT_OVERVIEW.md
+archive/
