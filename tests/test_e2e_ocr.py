@@ -75,3 +75,36 @@ def test_strips_match_single_pass_and_keep_column_order(monkeypatch):
     texts = [p["text"].lower() for p in pars]
     assert len(pars) == 2, texts
     assert "hund" in texts[0] and "abend" in texts[0] and "katze" in texts[1] and "hinaus" in texts[1]
+
+
+DARK_MAIL = ["ja, die Reise lag bei mir. Reisen die über Lamarr abgerechnet werden, bearbeite ich "
+             "aber nicht mehr automatisch. Diese habe ich jetzt freigegeben.",
+             "",
+             "Brendan, bitte kläre warum Du die Reise nicht sehen konntest.",
+             "",
+             "Viele Grüße",
+             "Thomas Bode"]
+
+
+def _dark_mail():
+    """Dark-mode mail body (light grey on near-black, ~12 px text, 1260 px wide), like a
+    real capture that lost most of its first line and the signature."""
+    return render_text_image(DARK_MAIL, size=(1260, 200), color=(225, 225, 225),
+                             bg=(24, 24, 27), font_px=12, margin=8, line_spacing=1.9)
+
+
+def test_dark_mode_page_fully_recognised_once():
+    small, sf = ocr.preprocess_image(_dark_mail())
+    pars = layout.group_lines_to_paragraphs(ocr.perform_ocr(small, sf))
+    text = " | ".join(p["text"] for p in pars).lower()
+    for word in ("ja", "lamarr", "bearbeite", "automatisch", "freigegeben", "brendan",
+                 "konntest", "grüße", "thomas", "bode"):
+        assert word in text, text
+    # no line read twice (region pass mistaking small text lines for coloured bars)
+    assert text.count("freigegeben") == 1 and text.count("konntest") == 1, text
+
+
+def test_small_text_lines_are_not_solid_regions():
+    img = render_text_image(DARK_MAIL, size=(1260, 200), font_px=12, margin=8, line_spacing=1.9)
+    assert ocr.find_solid_regions(img) == []
+    assert ocr.find_solid_regions(255 - _dark_mail()) == []

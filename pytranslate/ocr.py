@@ -58,6 +58,10 @@ def perform_ocr(img, scale_factor=1.0):
     pixels) is below min_glyph_height is upscaled x ocr_upscale first (INTER_CUBIC).
     Rects are reported in the coordinates of the original capture."""
     base = scale_factor
+    if is_dark_background(img):
+        # Tesseract reads light-on-dark text (dark mode) badly: it skips whole line pieces
+        # with confident results elsewhere, so the low-confidence fallback never kicks in.
+        img = 255 - img
     if estimate_glyph_height(img) / base < CONFIG.min_glyph_height:
         img = cv2.resize(img, None, fx=CONFIG.ocr_upscale, fy=CONFIG.ocr_upscale,
                          interpolation=cv2.INTER_CUBIC)
@@ -66,6 +70,16 @@ def perform_ocr(img, scale_factor=1.0):
     if _poor(lines):   # nothing found, or shaky: retry once with normalised variants
         lines = _fallback_pass(img, base, lines)
     return lines
+
+
+DARK_BG_MAX = 110   # median gray level below which the page counts as dark (light text)
+
+
+def is_dark_background(img):
+    """True when the dominant (median) brightness of the capture is dark, i.e. the text is
+    light on a dark page. Sampled on every 4th pixel to stay cheap."""
+    gray = img if img.ndim == 2 else cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    return float(np.median(gray[::4, ::4])) < DARK_BG_MAX
 
 
 FALLBACK_MIN_CONF = 50
@@ -155,12 +169,36 @@ def find_solid_regions(img):
             # a word of dark text is not
             if near[y:y + h, x:x + w][labels[y:y + h, x:x + w] == i].mean() < 0.6:
                 continue
-            box = (int(x * f), int(y * f), int(w * f), int(h * f))
+            box = _full_res_box(img, labels[y:y + h, x:x + w] == i, x * f, y * f, f, colour)
+            if box is None:
+                continue
             if not any(_iou(box, o) > 0.5 for o in boxes):
                 boxes.append(box)
     # A box that contains another one is a panel (e.g. a card around its header bar), not a
     # button: re-reading it would duplicate the inner box's text.
     return [b for b in boxes if not any(o is not b and _contains(b, o) for o in boxes)]
+
+
+def _full_res_box(img, comp, x0, y0, f, colour):
+    """Check a low-res candidate box at full resolution and tighten it there.
+
+    On the downscaled copy a line of small text blurs into a grey "bar", and the anti-aliased
+    border lines of a card can blend to the bar's colour and join it. At full resolution only
+    the real bar is still its colour: the box is the span of rows/columns that are at least
+    half as full of it as the fullest one. None if the colour does not fill that box."""
+    comp = comp.repeat(f, 0).repeat(f, 1)
+    full = img[y0:y0 + comp.shape[0], x0:x0 + comp.shape[1]].astype(np.int16)
+    comp = comp[:full.shape[0], :full.shape[1]]
+    match = (np.abs(full - colour).max(axis=2) <= COLOUR_TOL) & comp
+    rows, cols = match.sum(axis=1), match.sum(axis=0)
+    if not rows.any():
+        return None
+    ys = np.flatnonzero(rows >= rows.max() / 2)
+    xs = np.flatnonzero(cols >= cols.max() / 2)
+    t, b, l, r = ys[0], ys[-1] + 1, xs[0], xs[-1] + 1
+    if r - l < MIN_BOX_W or b - t < MIN_BOX_H or match[t:b, l:r].mean() < 0.5:
+        return None
+    return (int(x0 + l), int(y0 + t), int(r - l), int(b - t))
 
 
 def _contains(a, b, slack=2):
@@ -194,9 +232,12 @@ MAX_REGIONS = 12
 
 
 def _line_inside(l, box, base):
+    """Is the line's centre inside the box? (Boxes are found on a downscaled copy, so their
+    edges can be a few px off the line's: full containment missed lines and duplicated them.)"""
     lx, ly, lw, lh = (v * base for v in l['rect'])
     x, y, w, h = box
-    return lx >= x - 2 and ly >= y - 2 and lx + lw <= x + w + 2 and ly + lh <= y + h + 2
+    cx, cy = lx + lw / 2, ly + lh / 2
+    return x <= cx <= x + w and y <= cy <= y + h
 
 
 def ocr_solid_regions(img, lines, base):
