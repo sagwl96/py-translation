@@ -44,7 +44,7 @@ class TranslationWorker(QtCore.QThread):
     def run(self):
         global _last_capture
         try:
-            dpr = getattr(self, 'dpr', 1.0)
+            dpr = self.dpr
             key = capture_key(self.img_bgr, dpr)
             with _last_lock:
                 hit = _last_capture[1] if _last_capture and _last_capture[0] == key else None
@@ -95,7 +95,7 @@ class TranslationWorker(QtCore.QThread):
 
         except Exception as e:
             print("Worker Exception:", e)
-            self._save(getattr(self, 'dpr', 1.0), error=repr(e))
+            self._save(self.dpr, error=repr(e))
             self.error.emit(str(e) or type(e).__name__)
             self.finished_translation.emit([])
 

@@ -40,7 +40,7 @@ def test_apply_config_updates_shared_instance(monkeypatch):
     assert (CONFIG.source_lang, CONFIG.offline, CONFIG.min_ocr_conf) == ("de", False, 7)
 
 
-@pytest.mark.parametrize("cmd", [["-m", "pytranslate", "--help"], ["main.py", "--help"]])
+@pytest.mark.parametrize("cmd", [["-m", "pytranslate", "--help"]])
 def test_help_does_not_open_window(cmd):
     import os
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

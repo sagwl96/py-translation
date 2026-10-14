@@ -28,7 +28,7 @@ def test_qimage_to_bgr_honours_stride(qapp):
 def test_pyflakes_no_unused_imports():
     import subprocess, sys, os
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    r = subprocess.run([sys.executable, "-m", "pyflakes", os.path.join(root, "main.py"), os.path.join(root, "pytranslate")],
+    r = subprocess.run([sys.executable, "-m", "pyflakes", os.path.join(root, "pytranslate")],
                        capture_output=True, text=True)
     assert "imported but unused" not in r.stdout, r.stdout
 

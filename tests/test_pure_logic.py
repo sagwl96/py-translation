@@ -219,7 +219,7 @@ def test_strips_merge_with_offsets_and_namespaced_blocks(monkeypatch):
     def fake(gray):
         tops.append(gray.shape[0])
         return _word_data("w%d" % len(tops), 5)
-    monkeypatch.setattr(ocr, "_tesseract_data", fake)
+    monkeypatch.setattr(ocr, "_recognize_words", fake)
     lines = ocr.ocr_strips(img, 0.5)
     assert len(lines) == 2 and sum(tops) == 600
     lines.sort(key=lambda l: l["rect"][1])

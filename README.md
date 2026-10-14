@@ -81,7 +81,7 @@ uv sync --extra online
 ```
 uv sync
 QT_QPA_PLATFORM=offscreen uv run pytest -q
-uv run pyflakes main.py pytranslate tests scripts
+uv run pyflakes pytranslate tests scripts
 QT_QPA_PLATFORM=offscreen uv run python scripts/bench.py    # timing of the capture pipeline
 QT_QPA_PLATFORM=offscreen uv run python scripts/render_ui_states.py OUT_DIR   # PNGs of every UI state (light/dark, 1x/2x)
 ```

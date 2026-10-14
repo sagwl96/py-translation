@@ -252,7 +252,7 @@ def ocr_solid_regions(img, lines, base):
         x0, y0 = max(0, x - REGION_PAD), max(0, y - REGION_PAD)
         crop = img[y0:y + h + REGION_PAD, x0:x + w + REGION_PAD]
         crop = cv2.resize(crop, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-        data = _tesseract_data(cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY))
+        data = _recognize_words(cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY))
         if not data:
             continue
         new = _parse_data(data, base * 2, strip=REGION_STRIP_BASE + k)
@@ -325,7 +325,7 @@ def ocr_strips(img, scale_factor=1.0):
     bounds = [0] + cuts + [gray.shape[0]]
     spans = list(zip(bounds[:-1], bounds[1:]))
     with ThreadPoolExecutor(max_workers=len(spans)) as pool:
-        datas = list(pool.map(lambda sp: _tesseract_data(gray[sp[0]:sp[1]]), spans))
+        datas = list(pool.map(lambda sp: _recognize_words(gray[sp[0]:sp[1]]), spans))
     lines = []
     for i, ((top, _), data) in enumerate(zip(spans, datas)):
         if data:
@@ -343,7 +343,7 @@ def tesseract_lang():
 
 def ocr_tesseract(img, scale_factor=1.0):
     """One Tesseract run over the whole image; rects in original-capture coordinates."""
-    data = _tesseract_data(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
+    data = _recognize_words(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
     return _parse_data(data, scale_factor) if data else []
 
 
@@ -464,11 +464,6 @@ def _recognize_words(gray):
     finally:
         pool.put(api)
     return words
-
-
-def _tesseract_data(gray):
-    """Word tuples for a grayscale image, or None if no text was found."""
-    return _recognize_words(gray) or None
 
 
 def robust_text_h(texts, rects):
