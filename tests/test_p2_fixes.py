@@ -259,3 +259,17 @@ def test_src_lang_passed_to_google(monkeypatch):
 def test_detect_lang_tie_defaults_to_german():
     assert translate.detect_lang("Ausgang") == 'de'
     assert translate.detect_lang("Bahnhof Notausgang") == 'de'
+
+
+def test_worker_reports_partial_translation_failure(monkeypatch):
+    worker_mod.clear_capture_cache()
+    w = worker_mod.TranslationWorker(np.full((50, 50, 3), 255, np.uint8))
+    monkeypatch.setattr(CONFIG, "source_lang", "de")
+    monkeypatch.setattr(w, "_perform_ocr", lambda img, sf=1.0: [
+        {"text": "eins", "rect": (0, 0, 40, 10)}, {"text": "zwei", "rect": (100, 0, 40, 10)}])
+    monkeypatch.setattr(translate, "translate_text",
+                        lambda text, src='de': (_ for _ in ()).throw(TimeoutError("timeout")) if text == "zwei" else "one")
+    errors = []
+    w.error.connect(errors.append)
+    w.run()
+    assert errors == ["1 of 2 paragraphs not translated: timeout"]

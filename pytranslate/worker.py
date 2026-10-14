@@ -71,6 +71,9 @@ class TranslationWorker(QtCore.QThread):
             translated_paragraphs = self._translate_paragraphs(paragraphs, report)
             if report.all_failed:
                 self.error.emit("Translation failed: " + report.errors[0])
+            elif report.errors:
+                self.error.emit(f"{len(report.errors)} of {report.attempted} paragraphs not translated: "
+                                + report.errors[0])
 
             result_data = []
             for par in translated_paragraphs:

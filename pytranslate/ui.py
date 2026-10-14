@@ -934,7 +934,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.central.show_status("No text found or translation failed", 2000)
             return
 
-        self.central.show_status(f"Translated {len(result_data)} paragraphs", 1500)
+        if not self._error_shown:   # keep a translation error visible over the success toast
+            self.central.show_status(f"Translated {len(result_data)} paragraphs", 1500)
 
         boxes = []
         for item in result_data:
@@ -1057,5 +1058,5 @@ class MainWindow(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         if self.worker is not None and self.worker.isRunning():
             self.worker.requestInterruption()
-            self.worker.wait(2000)
+            self.worker.wait()   # destroying a running QThread aborts the process; OCR cannot be cut short
         event.accept()

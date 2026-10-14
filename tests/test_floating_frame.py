@@ -255,3 +255,12 @@ def test_system_copy_has_no_terminal_period(qapp):
     win.clear_with_toast()
     assert win.central.status_label.text() == "Overlays cleared"
     win.close()
+
+
+def test_translation_error_is_not_replaced_by_success_toast(qapp):
+    win = _win(qapp)
+    win.on_worker_error("Translation failed: model missing")
+    win.on_translation_finished([{"text": "x", "par_rect": (10, 10, 100, 30), "line_rects": [(10, 10, 100, 30)]}])
+    assert win.central.status_label.error
+    assert win.central.status_label.text() == "Translation failed: model missing"
+    win.close()
