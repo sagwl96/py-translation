@@ -2,6 +2,8 @@
 
 A small desktop tool that translates text anywhere on your screen, fully offline. Drag a transparent window over foreign text (German by default), press Space, and the text under it is captured, recognised with Tesseract, translated to English with a local neural model and drawn back over the original, Google Lens style. Nothing leaves your machine unless you opt in with `--online`.
 
+![Press Space: the German page under the frame is read and drawn over in English](docs/translate.gif)
+
 
 ## Requirements
 
@@ -28,6 +30,10 @@ The window is a see-through frame with a rounded purple outline. Only the area *
 - **Resize:** drag the thin zone just outside the outline (edges and corners; the cursor changes). The minimum capture area is about 290 x 160.
 - **Toolbar** (the dark pill under the frame): grip, language chip (click for "Detect automatically" / "German"; changing it clears cached translations), Translate (shows a spinner while working), Clear, Pin (always on top; tinted when on), More (keyboard shortcuts card, Quit) and Close. Tooltips show the shortcuts.
 - While idle the middle of the frame shows a hint. While working, the translate button spins and the frame outline pulses. A short white glow on the frame confirms a capture. Messages appear as small toasts at the bottom of the frame.
+
+![Click a translation to copy it, hold Alt to peek at the original](docs/interact.gif)
+
+![Language menu, pin on top, keyboard shortcuts](docs/toolbar.gif)
 
 ## Keys
 
@@ -84,6 +90,7 @@ QT_QPA_PLATFORM=offscreen uv run pytest -q
 uv run pyflakes pytranslate tests scripts
 QT_QPA_PLATFORM=offscreen uv run python scripts/bench.py    # timing of the capture pipeline
 QT_QPA_PLATFORM=offscreen uv run python scripts/render_ui_states.py OUT_DIR   # PNGs of every UI state (light/dark, 1x/2x)
+QT_QPA_PLATFORM=offscreen uv run python scripts/render_gifs.py   # the README GIFs in docs/ (real OCR + model, needs ffmpeg)
 ```
 
 Tests and the benchmark need the models installed (`./scripts/setup_models.sh`) and no network.
